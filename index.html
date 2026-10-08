@@ -38,6 +38,20 @@ textarea{min-height:150px;resize:vertical}
 .result a{display:block;margin:6px 0;color:var(--accent-d);font-weight:700;word-break:break-all}
 .ok{color:var(--ok);font-weight:800;font-size:20px;margin:0 0 6px}
 .hidden{display:none}
+
+.sechead{display:flex;gap:8px;align-items:center;margin:26px 0 10px;border-left:4px solid var(--accent);padding-left:12px}
+.sechead input{font-weight:800;font-size:17px;border-color:transparent;background:transparent}
+.sechead input:hover,.sechead input:focus{border-color:var(--line);background:#fff}
+.qcard{border:1px solid var(--line);border-radius:10px;padding:12px;margin-bottom:10px;background:#fcfbff}
+.qtop{display:grid;grid-template-columns:1fr auto;gap:8px}
+.qopts{display:flex;gap:12px;flex-wrap:wrap;align-items:center;margin-top:8px}
+.qopts select{width:auto}
+.qopts label{display:flex;gap:6px;align-items:center;margin:0;font-weight:500;font-size:14px}
+.qopts input[type=checkbox]{width:16px;height:16px;accent-color:var(--accent)}
+.qcard textarea{min-height:70px;margin-top:8px;font-size:14px}
+.pair{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px}
+.pair input{font-size:14px}
+.addrow{margin:4px 0 6px}
 </style>
 </head>
 <body>
@@ -70,6 +84,9 @@ textarea{min-height:150px;resize:vertical}
     <input type="text" id="title">
     <div id="sections"></div>
     <p class="meta" id="count"></p>
+    <label for="shareEmail">Your Gmail address (optional)</label>
+    <input type="text" id="shareEmail" placeholder="you@gmail.com" autocomplete="email">
+    <p class="meta">Adds you as an editor of the form and the responses sheet, so they appear in your Google Drive under "Shared with me".</p>
     <button class="btn" id="create">Create Google Form</button>
     <div class="msg" id="status2" role="status"></div>
   </section>
@@ -79,6 +96,7 @@ textarea{min-height:150px;resize:vertical}
     <a id="lForm" target="_blank" rel="noopener"></a>
     <a id="lEdit" target="_blank" rel="noopener"></a>
     <a id="lSheet" target="_blank" rel="noopener"></a>
+    <p class="meta" id="shareNote"></p>
   </section>
 </main>
 
@@ -106,28 +124,65 @@ $('gen').onclick = function(){
   }).generateSpec(d, {length:$('length').value, tone:$('tone').value, language:$('lang').value});
 };
 
+var TYPE_LABELS = {scale:'Rating (1-5)', multiple_choice:'Multiple choice', checkbox:'Checkboxes', dropdown:'Dropdown', paragraph:'Long answer', text:'Short answer'};
+function needsOpts(t){return t==='multiple_choice'||t==='checkbox'||t==='dropdown';}
+function el(tag, cls, text){var e=document.createElement(tag); if(cls) e.className=cls; if(text!=null) e.textContent=text; return e;}
+function newQ(){return {question:'New question', type:'scale', options:[], required:false, low:'Poor', high:'Excellent'};}
+
 function render(){
   $('badge').textContent = 'Detected event type: ' + spec.eventType;
   $('title').value = spec.title;
   var box = $('sections'); box.innerHTML='';
   var total = 0;
   spec.sections.forEach(function(s, si){
-    var h = document.createElement('div'); h.className='sec'; h.textContent=s.title; box.appendChild(h);
+    var head = el('div','sechead');
+    var st = el('input'); st.type='text'; st.value=s.title; st.setAttribute('aria-label','Section title');
+    st.oninput=function(){s.title=st.value;};
+    var ds = el('button','del','Remove section');
+    ds.onclick=function(){spec.sections.splice(si,1); render();};
+    head.append(st, ds); box.appendChild(head);
+
     s.questions.forEach(function(q, qi){
       total++;
-      var row = document.createElement('div'); row.className='q';
-      var left = document.createElement('div');
-      var inp = document.createElement('input'); inp.type='text'; inp.value=q.question; inp.setAttribute('aria-label','Question text');
+      var card = el('div','qcard'), top = el('div','qtop');
+      var inp = el('input'); inp.type='text'; inp.value=q.question; inp.setAttribute('aria-label','Question text');
       inp.oninput=function(){q.question=inp.value;};
-      var m = document.createElement('div'); m.className='meta';
-      m.textContent = q.type.replace('_',' ') + (q.required?' (required)':' (optional)') + (q.options.length?': '+q.options.join(', '):'');
-      left.appendChild(inp); left.appendChild(m);
-      var del = document.createElement('button'); del.className='del'; del.textContent='Remove';
-      del.onclick=function(){ s.questions.splice(qi,1); if(!s.questions.length) spec.sections.splice(si,1); render(); };
-      row.appendChild(left); row.appendChild(del); box.appendChild(row);
+      var del = el('button','del','Remove');
+      del.onclick=function(){s.questions.splice(qi,1); if(!s.questions.length) spec.sections.splice(si,1); render();};
+      top.append(inp, del);
+
+      var row = el('div','qopts');
+      var ty = el('select'); ty.setAttribute('aria-label','Question type');
+      Object.keys(TYPE_LABELS).forEach(function(k){var o=el('option',null,TYPE_LABELS[k]); o.value=k; if(k===q.type) o.selected=true; ty.appendChild(o);});
+      ty.onchange=function(){q.type=ty.value; if(needsOpts(q.type)&&q.options.length<2) q.options=['Option 1','Option 2']; render();};
+      var rl = el('label'), rc = el('input'); rc.type='checkbox'; rc.checked=!!q.required; rc.onchange=function(){q.required=rc.checked;};
+      rl.append(rc, document.createTextNode('Required'));
+      row.append(ty, rl);
+      card.append(top, row);
+
+      if(needsOpts(q.type)){
+        var ta = el('textarea'); ta.value=q.options.join('\n'); ta.placeholder='One option per line'; ta.setAttribute('aria-label','Options, one per line');
+        ta.oninput=function(){q.options=ta.value.split('\n').map(function(x){return x.trim();}).filter(Boolean);};
+        card.appendChild(ta);
+      }
+      if(q.type==='scale'){
+        var pr = el('div','pair');
+        var lo = el('input'); lo.type='text'; lo.value=q.low||''; lo.placeholder='Label for 1'; lo.oninput=function(){q.low=lo.value;};
+        var hi = el('input'); hi.type='text'; hi.value=q.high||''; hi.placeholder='Label for 5'; hi.oninput=function(){q.high=hi.value;};
+        pr.append(lo, hi); card.appendChild(pr);
+      }
+      box.appendChild(card);
     });
+
+    var add = el('button','chip','+ Add question to this section');
+    add.onclick=function(){s.questions.push(newQ()); render();};
+    box.appendChild(add);
   });
-  $('count').textContent = total + ' questions in ' + spec.sections.length + ' sections. Edit the wording or remove any question before creating.';
+  var addS = el('div','addrow'), bs = el('button','btn ghost','+ Add section');
+  bs.onclick=function(){spec.sections.push({title:'New section', questions:[newQ()]}); render();};
+  addS.appendChild(bs); box.appendChild(addS);
+
+  $('count').textContent = total + ' questions in ' + spec.sections.length + ' sections. Edit anything, add questions or sections, then create the form.';
   $('preview').classList.remove('hidden');
 }
 
@@ -139,10 +194,16 @@ $('create').onclick = function(){
     $('lForm').href=r.formUrl; $('lForm').textContent='Open form (share this link): '+r.formUrl;
     $('lEdit').href=r.editUrl; $('lEdit').textContent='Edit form: '+r.editUrl;
     if(r.sheetUrl){$('lSheet').href=r.sheetUrl; $('lSheet').textContent='Responses sheet: '+r.sheetUrl; $('lSheet').classList.remove('hidden');} else {$('lSheet').classList.add('hidden');}
+    var em = $('shareEmail').value.trim(), notes = [];
+    if(r.shared && r.shared.link) notes.push('Anyone with the edit link can edit the form (Google sign-in required) and anyone with the sheet link can view responses. Keep the edit link private.');
+    else notes.push('Automatic link sharing was blocked (likely a Workspace restriction), so only the account that deployed this app can open the edit link.');
+    if(r.shared && r.shared.email) notes.push('Also shared with ' + em + ' as an editor. Look in Google Drive > Shared with me.');
+    else if(em) notes.push('Could not share with ' + em + '. Check the address and try again.');
+    $('shareNote').textContent = notes.join(' ');
     $('result').classList.remove('hidden'); $('result').scrollIntoView({behavior:'smooth'});
   }).withFailureHandler(function(e){
     busy(btn,false,'Create Google Form'); $('status2').className='msg err'; $('status2').textContent=e.message||String(e);
-  }).createForm(spec, {collectEmail:$('email').checked});
+  }).createForm(spec, {collectEmail:$('email').checked, shareEmail:$('shareEmail').value});
 };
 </script>
 </body>
