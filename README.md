@@ -7,8 +7,7 @@ Built for the **CS Week AI Automation Competition** (Everyday Use track).
 | | |
 |---|---|
 | **Live app** | [Open the generator](https://script.google.com/macros/s/AKfycbwYQdz3KNUU7c1eNcZjFXTgJiLhx7wK0glWQVYpusNDgSizKqS9O6VZCso1GMFEhiQ/exec) (no login needed) |
-| **Demo video** | `PASTE_VIDEO_LINK` |
-| **Sample generated form** | `PASTE_SAMPLE_FORM_LINK` |
+| **Demo video** | [Open Video Drive Link](https://drive.google.com/drive/folders/1xzk_b2nQTxr16-g4BIec4x5EOgwnCGgR?usp=sharing) |
 
 ## The problem
 Collecting good event feedback means writing a new form for every event. Generic templates miss what actually happened: the sessions, the venue, the tools. This app writes a tailored form in seconds and creates it in Google Forms, ready to share.
