@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<base target="_top">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AI Event Feedback Form Generator</title>
+<link href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;700;800&display=swap" rel="stylesheet">
+<style>
+:root{--ink:#1d1b2e;--mute:#6b6880;--line:#dcd8ec;--bg:#f3f1fa;--card:#fff;--accent:#5b34c9;--accent-d:#46279f;--ok:#17794a;--err:#b3261e}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.5 Figtree,system-ui,sans-serif}
+main{max-width:760px;margin:0 auto;padding:32px 18px 80px}
+h1{font-size:clamp(28px,5vw,40px);line-height:1.1;margin:0 0 8px;font-weight:800;letter-spacing:-.02em}
+.sub{color:var(--mute);margin:0 0 24px;max-width:56ch}
+.panel{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:20px;margin-bottom:18px}
+label{font-weight:700;font-size:14px;display:block;margin-bottom:6px}
+textarea,select,input[type=text]{width:100%;font:inherit;padding:10px 12px;border:1px solid var(--line);border-radius:8px;background:#fff;color:var(--ink)}
+textarea{min-height:150px;resize:vertical}
+:focus-visible{outline:3px solid #b9a5f5;outline-offset:1px}
+.examples{display:flex;gap:8px;flex-wrap:wrap;margin:0 0 14px}
+.chip{border:1px solid var(--line);background:#faf9ff;border-radius:999px;padding:6px 14px;font:inherit;font-size:14px;cursor:pointer;color:var(--ink)}
+.chip:hover{border-color:var(--accent);color:var(--accent)}
+.row{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin:16px 0}
+@media(max-width:560px){.row{grid-template-columns:1fr}}
+.check{display:flex;gap:8px;align-items:center;font-size:14px;margin-bottom:16px}
+.check input{width:18px;height:18px;accent-color:var(--accent)}
+.btn{background:var(--accent);color:#fff;border:0;border-radius:8px;padding:12px 22px;font:inherit;font-weight:700;cursor:pointer}
+.btn:hover{background:var(--accent-d)}
+.btn:disabled{opacity:.6;cursor:wait}
+.btn.ghost{background:#fff;color:var(--accent);border:1px solid var(--accent)}
+.msg{margin-top:12px;font-size:14px}.msg.err{color:var(--err)}
+.badge{display:inline-block;background:#e9e2ff;color:var(--accent-d);font-weight:700;font-size:14px;padding:4px 12px;border-radius:999px;margin-bottom:10px}
+.sec{border-left:4px solid var(--accent);padding-left:14px;margin:22px 0 10px;font-weight:800;font-size:18px}
+.q{display:grid;grid-template-columns:1fr auto;gap:8px;align-items:start;margin-bottom:12px}
+.meta{font-size:13px;color:var(--mute);margin-top:4px}
+.del{border:1px solid var(--line);background:#fff;border-radius:8px;padding:8px 10px;cursor:pointer;color:var(--err);font:inherit;font-size:14px}
+.result a{display:block;margin:6px 0;color:var(--accent-d);font-weight:700;word-break:break-all}
+.ok{color:var(--ok);font-weight:800;font-size:20px;margin:0 0 6px}
+.hidden{display:none}
+</style>
+</head>
+<body>
+<main>
+  <h1>Describe your event. Get a feedback form.</h1>
+  <p class="sub">Paste what the event is for, what happened, and the technical setup. You'll review the questions, then a real Google Form is created for you.</p>
+
+  <section class="panel">
+    <div class="examples" aria-label="Example events">
+      <button class="chip" data-ex="hackathon">Hackathon</button>
+      <button class="chip" data-ex="workshop">Workshop</button>
+      <button class="chip" data-ex="wedding">Wedding</button>
+      <button class="chip" data-ex="webinar">Webinar</button>
+    </div>
+    <label for="desc">Event description</label>
+    <textarea id="desc" placeholder="e.g. A 24-hour college hackathon on sustainability with mentor sessions, a pitch round and a sponsor workshop..."></textarea>
+    <div class="row">
+      <div><label for="length">Length</label><select id="length"><option value="short">Short (6-8)</option><option value="standard" selected>Standard (10-15)</option><option value="detailed">Detailed (16-22)</option></select></div>
+      <div><label for="tone">Tone</label><select id="tone"><option value="casual">Casual</option><option value="formal">Formal</option></select></div>
+      <div><label for="lang">Language</label><select id="lang"><option>English</option><option>Tamil</option><option>Hindi</option><option>Spanish</option><option>French</option><option>German</option></select></div>
+    </div>
+    <label class="check"><input type="checkbox" id="email"> Collect respondents' email addresses</label>
+    <button class="btn" id="gen">Generate questions</button>
+    <div class="msg" id="status" role="status"></div>
+  </section>
+
+  <section class="panel hidden" id="preview">
+    <span class="badge" id="badge"></span>
+    <label for="title">Form title</label>
+    <input type="text" id="title">
+    <div id="sections"></div>
+    <p class="meta" id="count"></p>
+    <button class="btn" id="create">Create Google Form</button>
+    <div class="msg" id="status2" role="status"></div>
+  </section>
+
+  <section class="panel result hidden" id="result">
+    <p class="ok">Your form is ready</p>
+    <a id="lForm" target="_blank" rel="noopener"></a>
+    <a id="lEdit" target="_blank" rel="noopener"></a>
+    <a id="lSheet" target="_blank" rel="noopener"></a>
+  </section>
+</main>
+
+<script>
+var EX = {
+  hackathon: "CodeSprint 2026, a 24-hour college hackathon on sustainability. 180 students in teams of 4 built projects. Activities: opening keynote by an industry speaker, mentor office hours, a mid-night coding challenge, final pitch round, and a sponsor workshop on cloud credits. Venue: main auditorium plus 3 labs, campus Wi-Fi, overnight food stalls, registration via Devfolio. Goal: encourage students to build practical climate-tech prototypes.",
+  workshop: "A one-day in-person workshop on 'Intro to Machine Learning with Python' for 60 first-year students. Activities: a 90-minute lecture, a hands-on notebook lab, a Q&A panel with two faculty members, and a closing quiz. Held in Seminar Hall B with projector, mics and shared Wi-Fi. Lunch and tea provided. Goal: help beginners build and train their first model.",
+  wedding: "Priya and Arjun's wedding weekend in Jaipur for 250 guests. Events: welcome dinner, mehendi, sangeet night, wedding ceremony, and reception. Venue was a palace hotel with a garden stage, DJ and live band, buffet catering, shuttle buses from the airport and hotel, and a photo booth. Goal: understand how guests enjoyed the celebration.",
+  webinar: "A 60-minute virtual webinar on 'Career Paths in Cybersecurity' hosted on Zoom for 400 registrants. Agenda: speaker talk, live demo of a phishing simulation, panel discussion and a live Q&A. Registration through a Google Form, recording shared afterward. Goal: help students understand roles and skills needed to start a cybersecurity career."
+};
+var spec = null;
+function $(id){return document.getElementById(id);}
+function busy(btn, on, text){btn.disabled=on; if(text) btn.textContent=text;}
+document.querySelectorAll('.chip').forEach(function(c){c.onclick=function(){$('desc').value=EX[c.dataset.ex];};});
+
+$('gen').onclick = function(){
+  var d = $('desc').value, btn = $('gen');
+  $('status').className='msg'; $('status').textContent='Reading your event and writing questions... about 10 seconds.';
+  $('preview').classList.add('hidden'); $('result').classList.add('hidden');
+  busy(btn,true,'Generating...');
+  google.script.run.withSuccessHandler(function(s){
+    spec = s; busy(btn,false,'Regenerate questions'); $('status').textContent=''; render();
+  }).withFailureHandler(function(e){
+    busy(btn,false,'Generate questions'); $('status').className='msg err'; $('status').textContent=e.message||String(e);
+  }).generateSpec(d, {length:$('length').value, tone:$('tone').value, language:$('lang').value});
+};
+
+function render(){
+  $('badge').textContent = 'Detected event type: ' + spec.eventType;
+  $('title').value = spec.title;
+  var box = $('sections'); box.innerHTML='';
+  var total = 0;
+  spec.sections.forEach(function(s, si){
+    var h = document.createElement('div'); h.className='sec'; h.textContent=s.title; box.appendChild(h);
+    s.questions.forEach(function(q, qi){
+      total++;
+      var row = document.createElement('div'); row.className='q';
+      var left = document.createElement('div');
+      var inp = document.createElement('input'); inp.type='text'; inp.value=q.question; inp.setAttribute('aria-label','Question text');
+      inp.oninput=function(){q.question=inp.value;};
+      var m = document.createElement('div'); m.className='meta';
+      m.textContent = q.type.replace('_',' ') + (q.required?' (required)':' (optional)') + (q.options.length?': '+q.options.join(', '):'');
+      left.appendChild(inp); left.appendChild(m);
+      var del = document.createElement('button'); del.className='del'; del.textContent='Remove';
+      del.onclick=function(){ s.questions.splice(qi,1); if(!s.questions.length) spec.sections.splice(si,1); render(); };
+      row.appendChild(left); row.appendChild(del); box.appendChild(row);
+    });
+  });
+  $('count').textContent = total + ' questions in ' + spec.sections.length + ' sections. Edit the wording or remove any question before creating.';
+  $('preview').classList.remove('hidden');
+}
+
+$('create').onclick = function(){
+  spec.title = $('title').value || spec.title;
+  var btn=$('create'); busy(btn,true,'Creating form...'); $('status2').className='msg'; $('status2').textContent='';
+  google.script.run.withSuccessHandler(function(r){
+    busy(btn,false,'Create Google Form');
+    $('lForm').href=r.formUrl; $('lForm').textContent='Open form (share this link): '+r.formUrl;
+    $('lEdit').href=r.editUrl; $('lEdit').textContent='Edit form: '+r.editUrl;
+    if(r.sheetUrl){$('lSheet').href=r.sheetUrl; $('lSheet').textContent='Responses sheet: '+r.sheetUrl; $('lSheet').classList.remove('hidden');} else {$('lSheet').classList.add('hidden');}
+    $('result').classList.remove('hidden'); $('result').scrollIntoView({behavior:'smooth'});
+  }).withFailureHandler(function(e){
+    busy(btn,false,'Create Google Form'); $('status2').className='msg err'; $('status2').textContent=e.message||String(e);
+  }).createForm(spec, {collectEmail:$('email').checked});
+};
+</script>
+</body>
+</html>
