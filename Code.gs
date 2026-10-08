@@ -1,3 +1,7 @@
+/**
+ * AI Event Feedback Form Generator  (Google Apps Script)
+ * Setup: Project Settings > Script Properties > add GEMINI_KEY
+ */
 // Tried in order; if one is retired (404) the next is used automatically.
 const MODELS = ['gemini-flash-latest', 'gemini-3.5-flash', 'gemini-3.1-flash-lite'];
 const TYPES = ['scale', 'multiple_choice', 'checkbox', 'dropdown', 'paragraph', 'text'];
@@ -125,12 +129,30 @@ function createForm(spec, opts) {
     });
   });
 
-  let sheetUrl = '';
+  let ss = null, sheetUrl = '';
   try {
-    const ss = SpreadsheetApp.create('Responses - ' + spec.title);
+    ss = SpreadsheetApp.create('Responses - ' + spec.title);
     form.setDestination(FormApp.DestinationType.SPREADSHEET, ss.getId());
     sheetUrl = ss.getUrl();
   } catch (e) {}
 
-  return { formUrl: form.getPublishedUrl(), editUrl: form.getEditUrl(), sheetUrl: sheetUrl };
+  // Sharing: anyone with the edit link can edit the form; anyone with the sheet link can view responses.
+  const shared = { link: false, email: false };
+  try {
+    DriveApp.getFileById(form.getId()).setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.EDIT);
+    if (ss) DriveApp.getFileById(ss.getId()).setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+    shared.link = true;
+  } catch (e) { Logger.log('Link sharing failed: ' + e.message); }
+
+  // Optional: add the creator's own Google account as an editor (form + responses sheet).
+  const email = String(opts.shareEmail || '').trim();
+  if (/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    try {
+      form.addEditor(email);
+      if (ss) ss.addEditor(email);
+      shared.email = true;
+    } catch (e) { Logger.log('addEditor failed: ' + e.message); }
+  }
+
+  return { formUrl: form.getPublishedUrl(), editUrl: form.getEditUrl(), sheetUrl: sheetUrl, shared: shared };
 }
