@@ -71,6 +71,8 @@ flowchart LR
 - The Gemini free tier is rate limited. If the app reports an error, wait a minute and try again.
 
 ## Author
-Akshai Krishna KP
+Akshai Krishna KP 
+
 Mahalis Rayhan
+
 Raihan Shamnad
