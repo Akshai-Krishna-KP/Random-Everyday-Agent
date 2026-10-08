@@ -72,3 +72,5 @@ flowchart LR
 
 ## Author
 Akshai Krishna KP
+Mahalis Rayhan
+Raihan Shamnad
